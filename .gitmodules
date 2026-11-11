@@ -1,0 +1,5 @@
+[submodule ".vt/sdk"]
+	path = .vt/sdk
+	url = git@github.com:vharris-psp/VTProjectSDK.git
+	branch = main
+	update = checkout

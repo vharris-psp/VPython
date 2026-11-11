@@ -1,0 +1,5 @@
+project: VPython
+environments: {dev: {role: development, mode: process}}
+schema: vt-project/v1
+type: library
+...

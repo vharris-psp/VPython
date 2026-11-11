@@ -1,0 +1,8 @@
+pyproject.toml
+src/vpython/__init__.py
+src/vpython.egg-info/PKG-INFO
+src/vpython.egg-info/SOURCES.txt
+src/vpython.egg-info/dependency_links.txt
+src/vpython.egg-info/requires.txt
+src/vpython.egg-info/top_level.txt
+tests/test_package.py
