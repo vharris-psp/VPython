@@ -1,6 +1,5 @@
-version: 0.1.0
-vt_version: 1.8.1
-project_file: pyproject.toml
+version: "0.1.1"
+vt_version: "1.8.3"
+project_file: "pyproject.toml"
 dependencies:
-- VTProjectSDK
-...
+  - "VTProjectSDK"
