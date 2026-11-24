@@ -1,1 +1,0 @@
-"""VPython VT source library."""

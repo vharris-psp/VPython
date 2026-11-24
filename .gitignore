@@ -7,3 +7,10 @@
 /.vt/cache/
 /.vt/legacy/
 /.vt/tmp/
+
+# Python build and interpreter outputs
+/build/
+/dist/
+/src/*.egg-info/
+**/__pycache__/
+*.py[cod]
