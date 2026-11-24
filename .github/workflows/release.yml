@@ -10,7 +10,33 @@ permissions:
   contents: write
 
 jobs:
+  test:
+    runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        python-version: ["3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Verify pyproject version matches the release tag
+        shell: bash
+        run: |
+          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
+          [[ "$GITHUB_REF_NAME" == "v$version" ]]
+
+      - name: Test source and project commands
+        shell: bash
+        run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet '.[test]'
+          .venv/bin/python -m pytest --junit-xml test-results.xml -q
+
   release:
+    needs: test
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -19,24 +45,37 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: Verify pyproject version matches the release tag
-        shell: bash
-        run: |
-          version="$(python3 -c 'import tomllib; print(tomllib.load(open("pyproject.toml", "rb"))["project"]["version"])')"
-          [[ "$GITHUB_REF_NAME" == "v$version" ]]
-
-      - name: Test
-        shell: bash
-        run: |
-          python3 -m venv .venv
-          .venv/bin/pip install --quiet build '.[test]'
-          .venv/bin/python -m pytest --junit-xml test-results.xml -q
-
       - name: Build artifacts
         shell: bash
         run: |
+          python3 -m venv .venv
+          .venv/bin/pip install --quiet build
           .venv/bin/python -m build --outdir artifacts
           cd artifacts && sha256sum * > SHA256SUMS
+
+      - name: Verify installed wheel
+        shell: bash
+        run: |
+          python3 -m venv "$RUNNER_TEMP/vpython-wheel"
+          "$RUNNER_TEMP/vpython-wheel/bin/pip" install --quiet artifacts/*.whl
+          cd "$RUNNER_TEMP"
+          "$RUNNER_TEMP/vpython-wheel/bin/python" - "$GITHUB_WORKSPACE/pyproject.toml" <<'PY'
+          import importlib
+          import importlib.metadata
+          import pathlib
+          import sys
+          import tomllib
+
+          project = tomllib.loads(pathlib.Path(sys.argv[1]).read_text())
+          metadata = project["project"]
+          distribution = importlib.metadata.distribution(metadata["name"])
+          assert distribution.version == metadata["version"]
+          top_level = distribution.read_text("top_level.txt")
+          assert top_level
+          for module in top_level.splitlines():
+              if module:
+                  importlib.import_module(module)
+          PY
 
       - name: Publish GitHub release
         env:
