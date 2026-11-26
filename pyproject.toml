@@ -4,9 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "vpython"
-version = "0.1.2"
+version = "1.9.0"
 description = "VPython VT source library."
 requires-python = ">=3.11"
+dependencies = ["vt-project-sdk==1.9.0"]
 
 [project.optional-dependencies]
 test = ["pytest>=8"]

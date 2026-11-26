@@ -17,6 +17,8 @@ jobs:
         python-version: ["3.11", "3.12"]
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v5
         with:
@@ -31,8 +33,15 @@ jobs:
       - name: Test source and project commands
         shell: bash
         run: |
+          [[ "$(git -C .vt/sdk rev-parse HEAD)" == "fd5293bb88bc9b701a2a2244ecc75c0a92d9a74c" ]]
+          [[ "$(git -C .vt/sdk rev-parse HEAD)" == "$(git rev-parse HEAD:.vt/sdk)" ]]
           python3 -m venv .venv
-          .venv/bin/pip install --quiet '.[test]'
+          .venv/bin/pip install --quiet build 'setuptools>=77' 'pytest>=8'
+          sdk_dist="$RUNNER_TEMP/vt-project-sdk-${{ matrix.python-version }}"
+          mkdir -p "$sdk_dist"
+          .venv/bin/python -m build --no-isolation --wheel --outdir "$sdk_dist" .vt/sdk/python
+          .venv/bin/pip install --quiet --no-index --no-build-isolation \
+            --find-links "$sdk_dist" -e .
           .venv/bin/python -m pytest --junit-xml test-results.xml -q
 
   release:
@@ -40,6 +49,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
+        with:
+          submodules: recursive
 
       - uses: actions/setup-python@v5
         with:
@@ -48,16 +59,24 @@ jobs:
       - name: Build artifacts
         shell: bash
         run: |
+          [[ "$(git -C .vt/sdk rev-parse HEAD)" == "fd5293bb88bc9b701a2a2244ecc75c0a92d9a74c" ]]
+          [[ "$(git -C .vt/sdk rev-parse HEAD)" == "$(git rev-parse HEAD:.vt/sdk)" ]]
           python3 -m venv .venv
-          .venv/bin/pip install --quiet build
-          .venv/bin/python -m build --outdir artifacts
+          .venv/bin/pip install --quiet build 'setuptools>=77'
+          sdk_dist="$RUNNER_TEMP/vt-project-sdk-dist"
+          mkdir -p "$sdk_dist"
+          .venv/bin/python -m build --no-isolation --wheel --outdir "$sdk_dist" .vt/sdk/python
+          .venv/bin/python -m build --no-isolation --outdir artifacts
           cd artifacts && sha256sum * > SHA256SUMS
 
       - name: Verify installed wheel
         shell: bash
         run: |
           python3 -m venv "$RUNNER_TEMP/vpython-wheel"
-          "$RUNNER_TEMP/vpython-wheel/bin/pip" install --quiet artifacts/*.whl
+          "$RUNNER_TEMP/vpython-wheel/bin/pip" install --quiet --no-index \
+            --find-links "$RUNNER_TEMP/vt-project-sdk-dist" \
+            --find-links artifacts \
+            artifacts/vpython-*.whl
           cd "$RUNNER_TEMP"
           "$RUNNER_TEMP/vpython-wheel/bin/python" - "$GITHUB_WORKSPACE/pyproject.toml" <<'PY'
           import importlib
@@ -70,6 +89,14 @@ jobs:
           metadata = project["project"]
           distribution = importlib.metadata.distribution(metadata["name"])
           assert distribution.version == metadata["version"]
+          sdk_requirements = [
+              requirement
+              for requirement in (distribution.requires or [])
+              if requirement.lower().startswith("vt-project-sdk")
+          ]
+          assert sdk_requirements == ["vt-project-sdk==1.9.0"]
+          assert importlib.metadata.version("vt-project-sdk") == "1.9.0"
+          importlib.import_module("vt_project_sdk")
           top_level = distribution.read_text("top_level.txt")
           assert top_level
           for module in top_level.splitlines():

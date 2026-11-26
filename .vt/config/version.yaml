@@ -1,4 +1,4 @@
-version: "0.1.2"
+version: "1.9.0"
 vt_version: "1.9.0"
 project_file: "pyproject.toml"
 dependencies:
